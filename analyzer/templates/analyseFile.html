@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="es">
+    <head>
+        <title>An&aacute;lisis de proyectos</title>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+        <meta name="description" content="">
+        <meta name="author" content="">
+        <link rel="icon" href="{% static 'favicon.ico' %}">
+        <!-- Bootstrap core CSS -->
+        <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" type="text/css" rel="stylesheet">
+        <!-- Bootstrap theme -->
+        <link href="{% static 'bootstrap/css/bootstrap-theme.min.css' %}" type="text/css" rel="stylesheet">
+        <!-- Custom styles for this template -->
+        <link href="{% static 'bootstrap/css/theme.css' %}" rel="stylesheet">
+
+    </head>
+    <body>
+    <!-- Fixed navbar -->
+        <nav class="navbar navbar-inverse navbar-fixed-top">
+              <div class="container">
+                    <div class="navbar-header">
+<!--                          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                                <span class="sr-only">Toggle navigation</span>
+                                <span class="icon-bar"></span>
+                                <span class="icon-bar"></span>
+                                <span class="icon-bar"></span>
+                          </button>
+-->
+                          <a class="navbar-brand" href="http://localhost:8000/analyzer">An&aacute;lisis Coala</a>
+                    </div>
+                    <div id="navbar" class="navbar-collapse collapse">
+                          <ul class="nav navbar-nav">
+                                <li><a href="http://localhost:8000/analyzer">P&aacute;gina principal</a></li>
+                                <li class="active"><a href="http://localhost:8000/analyzer/analyse">Analizar</a></li>
+                                <li><a href="http://localhost:8000/analyzer/search">Buscar</a></li>
+                                <li><a href="http://localhost:8000/analyzer/statistics/project">Proyectos</a></li>
+                                <li><a href="http://localhost:8000/analyzer/statistics/file">Ficheros</a></li> 
+                                <li><a href="http://localhost:8000/analyzer/statistics/bear">Bears</a></li>
+                          </ul>
+                    </div><!--/.nav-collapse -->
+              </div>
+        </nav>
+        <div class="container theme-showcase" role="main">
+            <!-- Main jumbotron for a primary marketing message or call to action -->
+            <div class="jumbotron">
+            <h2>Analizar proyectos de GitHub a trav&eacute;s de un fichero</h2>
+            <p>A continuaci&oacute;n indique la ruta absoluta del fichero local que contenga las url de los proyectos a analizar.</p>            
+            </div>
+        </div>
+        <div class="container">
+            <div class="alert alert-warning" role="alert">
+                <strong>¡Atenci&oacute;n!</strong> Si un proyecto ya existe en la base de datos, se actualizar&aacute; la informaci&oacute;n.
+            </div>
+            <div align="center">
+                <form action="/analyzer/processFile" method="GET">
+                    <p><INPUT type="text" size="80" name="path"></p>
+                    <p><INPUT class="btn btn-lg btn-default" type="submit" value="Analizar fichero">
+                    <INPUT class="btn btn-lg btn-default" type="Reset" value="Borrar"></p>
+                </form>
+            </div>
+            <hr>
+            <footer>
+                <p>Ra&uacute;l S&aacute;nchez L&oacute;pez - 2017</p>
+            </footer>
+        </div> <!-- /container -->
+    </body>
+</html>
