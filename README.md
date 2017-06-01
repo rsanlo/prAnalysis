@@ -1,5 +1,6 @@
 # prAnalysis
-Analizador de proyectos con <a href="https://coala.io/#!/home">coala</a>.
+Código del PFC de Raúl Sánchez
 
 ## Informaci&oacute;n
-Se trata de un proyecto python sobre DJANGO para mostrar los resultados de los an&aacute;lisis.
+Aplicación prAnalysis: Analiza proyectos Python con ayuda de <a href="https://coala.io/#!/home">coala</a>.
+Tecnologías: Python, Coala, DJANGO, HTML, BootStrap
