@@ -31,4 +31,6 @@ urlpatterns = [
     url(r'^statistics/file/$', views.statisticsFile, name='statisticsFile'),
     # ex: /analyzer/statistics/bear
     url(r'^statistics/project/$', views.statisticsProject, name='statisticsProject'),
+    # ex: /analyzer/remove/nombreProyecto
+    url(r'^remove/(.*)', views.removeProject, name='removeProject'),
 ]

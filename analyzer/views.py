@@ -317,7 +317,7 @@ def analyseFile(request):
 
     # Muestra pagina de analisis por fichero local
     template = loader.get_template('analyseFile.html')
-    return HttpResponse(template.render())
+    return HttpResponse(template.render())   
 
 def processFile(request):
     # Toma el path del fichero introducido    
@@ -403,15 +403,7 @@ def processFile(request):
         except ValueError:
             if Project.objects.filter(Name = project_name, URL = stripped_line).exists():
                 Project.objects.filter(Name = project_name, URL = stripped_line).delete()
-            html = u''
-            html += '<div class="panel-heading">'
-            html += '<h3 align=center class="panel-title">Error de b&uacute;squeda</h3></div>'
-            html += '<div class="panel-body">'
-            html += '<h4>Se ha producido un error de lectura de los datos analizados.</h4>'
-            html += '</div>'
-
-            template = loader.get_template('error.html')
-            return HttpResponse(template.render(Context({'html':html})))
+            continue
 
         # Extraer los campos del fichero JSON
         for i in range(0, len(data["results"]["default"])):
@@ -794,4 +786,24 @@ def showResults(request):
     # Cargar datos en template
     template = loader.get_template('show.html')
     return HttpResponse(template.render(Context({'html':html, 'item':item})))
-    
+
+def removeProject(request, resource):
+    html = u''
+
+    # Comprobar la existencia del proyecto. Si existe, se sobreescribe
+    if Project.objects.filter(Name = resource).exists():
+        Project.objects.filter(Name = resource).delete()       
+        html += '<div class="panel-heading">'
+        html += '<h3 align=center class="panel-title">Eliminaci&oacute;n completada</h3></div>'
+        html += '<div class="panel-body">'
+        html += '<h4>Se ha eliminado el proyecto ' + resource + ' de la base de datos.</h4>'
+        html += '</div>'
+    else:
+        html += '<div class="panel-heading">'
+        html += '<h3 align=center class="panel-title">Error de eliminaci&oacuten</h3></div>'
+        html += '<div class="panel-body">'
+        html += '<h4>El proyecto ' + resource + ' no existe en la base de datos.</h4>'
+        html += '</div>'
+
+    template = loader.get_template('remove.html')
+    return HttpResponse(template.render(Context({'html':html})))
