@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import sqlite3
+import requests
 from .models import *
 from time import time
 from pprint import pprint
@@ -11,6 +12,7 @@ from django.conf import settings
 from subprocess import Popen,PIPE
 from django.shortcuts import render
 from django.http import HttpResponse
+from requests.exceptions import HTTPError
 from django.template import loader, Context, Template, RequestContext
 
 def home(request):
@@ -348,11 +350,17 @@ def processFile(request):
         # Asegurarse de que el string no tenga espacios a los lados
         stripped_line = line.strip()
 
-        # Comprobar que se trata de una url de GitHub
+        # Comprobar que se trata de una url correcta de GitHub
         url_line = urlparse(stripped_line)
         if url_line.netloc != "github.com":
             # Si no es una url valida, saltar esta linea
             print "UrlError: La linea '" + stripped_line + "' no pertenece a una url de un proyecto de GitHub"
+            continue
+        try:
+            r = requests.get(stripped_line)
+            r.raise_for_status()
+        except HTTPError:
+            print "UrlError: La linea '" + stripped_line + "' no pertenece a una url v&aacute;lida."
             continue
 
         # Obtener el nombre del proyecto
@@ -389,8 +397,21 @@ def processFile(request):
         output = p2.communicate()[0]
 
         # Abrir el fichero JSON
-        with open(settings.CONSTANTS['jsonFile']) as data_file:
-            data = json.load(data_file)
+        try:
+            with open(settings.CONSTANTS['jsonFile']) as data_file:
+                data = json.load(data_file)
+        except ValueError:
+            if Project.objects.filter(Name = project_name, URL = stripped_line).exists():
+                Project.objects.filter(Name = project_name, URL = stripped_line).delete()
+            html = u''
+            html += '<div class="panel-heading">'
+            html += '<h3 align=center class="panel-title">Error de b&uacute;squeda</h3></div>'
+            html += '<div class="panel-body">'
+            html += '<h4>Se ha producido un error de lectura de los datos analizados.</h4>'
+            html += '</div>'
+
+            template = loader.get_template('error.html')
+            return HttpResponse(template.render(Context({'html':html})))
 
         # Extraer los campos del fichero JSON
         for i in range(0, len(data["results"]["default"])):
@@ -497,7 +518,6 @@ def processFile(request):
 def processURL(request):
     # Tomar el path del fichero introducido    
     resource = request.GET
-    print resource
     line = resource['url']
 
     # Asegurarse de que el string no tenga espacios a los lados
@@ -512,7 +532,21 @@ def processURL(request):
         html += '<div class="panel-heading">'
         html += '<h3 align=center class="panel-title">Error en URL</h3></div>'
         html += '<div class="panel-body">'
-        html += '<h4>La URL proporcionada no es correcta. Pruebe a buscar el proyecto en <a href="https://github.com/">GitHub</a>.</h4>'
+        html += '<h4>La URL proporcionada no es correcta. Pruebe a buscar el proyecto en <a href="https://github.com/">GitHub</a>. Recuerde que la estructura b&aacute;sica de las URLs debe ser: https://github.com/AUTOR/PROYECTO.git</h4>'
+        html += '</div>'
+
+        template = loader.get_template('error.html')
+        return HttpResponse(template.render(Context({'html':html})))
+
+    try:
+        r = requests.get(stripped_line)
+        r.raise_for_status()
+    except HTTPError:
+        html = u''
+        html += '<div class="panel-heading">'
+        html += '<h3 align=center class="panel-title">Error de b&uacute;squeda</h3></div>'
+        html += '<div class="panel-body">'
+        html += '<h4>La URL proporcionada no es correcta. Pruebe a buscar el proyecto en <a href="https://github.com/">GitHub</a>. Recuerde que la estructura b&aacute;sica de las URLs debe ser: https://github.com/AUTOR/PROYECTO.git</h4>'
         html += '</div>'
 
         template = loader.get_template('error.html')
@@ -550,8 +584,21 @@ def processURL(request):
     output = p2.communicate()[0]
 
     # Abrir el fichero JSON
-    with open(settings.CONSTANTS['jsonFile']) as data_file:
-        data = json.load(data_file)
+    try:
+        with open(settings.CONSTANTS['jsonFile']) as data_file:
+            data = json.load(data_file)
+    except ValueError:
+        if Project.objects.filter(Name = project_name, URL = stripped_line).exists():
+            Project.objects.filter(Name = project_name, URL = stripped_line).delete()
+        html = u''
+        html += '<div class="panel-heading">'
+        html += '<h3 align=center class="panel-title">Error de b&uacute;squeda</h3></div>'
+        html += '<div class="panel-body">'
+        html += '<h4>Se ha producido un error de lectura de los datos analizados.</h4>'
+        html += '</div>'
+
+        template = loader.get_template('error.html')
+        return HttpResponse(template.render(Context({'html':html})))
 
     # Extraer los campos del fichero JSON
     for i in range(0, len(data["results"]["default"])):

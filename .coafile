@@ -1,0 +1,6 @@
+[Default]
+bears = BanditBear,FilenameBear,InvalidLinkBear,MypyBear,PEP8Bear,PyCommentedCodeBear,PyDocStyleBear,PyFlakesBear,PyImportSortBear,PyLintBear,PyUnusedCodeBear,PycodestyleBear,PyromaBear,RadonBear,VultureBear,coalaBear,SpaceConsistencyBear
+files = *.py
+language = python
+use_spaces = True
+
