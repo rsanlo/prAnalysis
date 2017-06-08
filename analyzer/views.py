@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import shutil
 import sqlite3
 import requests
 from .models import *
@@ -27,9 +28,10 @@ def home(request):
         total_bears = 0
         for bears in Bear.objects.filter(ProjectName = project):
             total_bears += 1
-        project_list.append((total_bears, total_files, project.Name))
+        percen = float(total_files)/float(project.TotalFiles)
+        project_list.append((total_bears, total_files, project.Name, percen))
     # Ordenar la lista
-    project_list.sort(key=lambda project_list: project_list[0], reverse=False)
+    project_list.sort(key=lambda project_list: project_list[3], reverse=False)
 
     # Para cada proyecto, preparacion del codigo html que se mostrara
     for i in project_list:
@@ -38,7 +40,9 @@ def home(request):
         html += '<h3 align=center class="panel-title">' + project.Name + '</h3></div>'
         html += '<div class="panel-body">'
         html += '<h4> URL en GitHub: <a href="' + project.URL + '">' + project.URL + '</a></h4>'
-        html += '<h4>Ficheros analizados: ' + str(i[1]) + '</h4>'
+        html += '<h4>Ficheros Python totales: ' + project.TotalFiles + '</h4>'
+        html += '<h4>Ficheros afectados: ' + str(i[1]) + '</h4>'
+        html += '<h4>% ficheros afectados: ' + str(float(i[3])*100)[0:5] + ' %</h4>'
         html += '<h4>Bears almacenados: ' + str(i[0]) + '</h4>'
         html += '<h4><a href="http://localhost:8000/analyzer/project/' + project.Name + '">M&aacute;s informaci&oacute;n >>></a></h4>'
         html += '</div>'
@@ -121,15 +125,16 @@ def statisticsProject(request):
         total_bears = 0
         for bears in Bear.objects.filter(ProjectName = project):
             total_bears += 1
-        project_list.append((total_bears, total_files, project.Name))
-    project_list.sort(key=lambda project_list: project_list[0], reverse=True)
+        percen = float(total_files)/float(project.TotalFiles)
+        project_list.append((total_bears, total_files, project.TotalFiles, project.Name, percen))
+    project_list.sort(key=lambda project_list: project_list[4], reverse=True)
 
     # Preparar html para mostrar la informacion
     html_project += '<div class="col-md-12"><table class="table table-striped">'
-    html_project += '<thead><tr><th>#</th><th>Bears</th><th>Ficheros</th><th>Proyecto</th></tr></thead><tbody>'
+    html_project += '<thead><tr><th>#</th><th>Bears</th><th>% ficheros afectados</th><th>Ficheros afectados</th><th>Ficheros Python</th><th>Proyecto</th></tr></thead><tbody>'
     count = 1
     for i in project_list:
-        html_project += '<tr><td>' + str(count) + '</td><td>' + str(i[0]) + '</td><td>' + str(i[1]) + '</td><td><a href="http://localhost:8000/analyzer/show/?item=' + str(i[2]) + '&option=1">' + str(i[2]) + '</a></td></tr>'
+        html_project += '<tr><td>' + str(count) + '</td><td>' + str(i[0]) + '</td><td>' + str(float(i[4])*100)[0:5] + '</td><td>' + str(i[1]) + '</td><td>' + str(i[2]) + '</td><td><a href="http://localhost:8000/analyzer/show/?item=' + str(i[3]) + '&option=1">' + str(i[3]) + '</a></td></tr>'
         count += 1
     html_project += '</tbody></table></div>'
     stats_type = 'Cantidad de bears por proyecto'
@@ -160,10 +165,13 @@ def projectInfo(request, resource):
     name = project.Name
     html += '<div class="page-header"><h3><b><a href="http://localhost:8000/analyzer/project/' + name + '">' + name + '</a></b></h3></div>'
     html += '<h4> URL en GitHub: <a href="' + project.URL + '">' + project.URL + '</a></h4>'
+    html += '<h4># ficheros Python: ' + project.TotalFiles + '</h4>'
     total_files = 0
     for files in File.objects.filter(ProjectName = project):
         total_files += 1
-    html += '<h4># ficheros analizados: ' + str(total_files) + '</h4>'
+    html += '<h4># ficheros afectados: ' + str(total_files) + '</h4>'
+    percen = float(total_files)/float(project.TotalFiles)
+    html += '<h4>% ficheros afectados: ' + str(float(percen)*100)[0:5] + ' %</h4>'
     total_bears = 0
     for bears in Bear.objects.filter(ProjectName = project):
         total_bears += 1
@@ -376,14 +384,24 @@ def processFile(request):
         #Obtener la ruta al fichero descargado (dentro del directorio local)
         project_path = "/tmp/" + project_name.split("/")[1]
         python_files = project_path + "/**.py"
-        
+
+        # Ficheros Python del proyecto
+        lstDir = os.walk(project_path)
+        total_py_files = 0        
+
+        for root, dirs, files in lstDir:
+            for myfile in files:
+                (name, ext) = os.path.splitext(myfile)
+                if(ext == ".py"):
+                    total_py_files += 1
+              
         # Comprobar la existencia del proyecto. Si existe, se sobreescribe
         if Project.objects.filter(Name = project_name, URL = stripped_line).exists():
             Project.objects.filter(Name = project_name, URL = stripped_line).delete()
-            myProject = Project(Name = project_name, URL = stripped_line)
+            myProject = Project(Name = project_name, URL = stripped_line, TotalFiles = str(total_py_files))
             myProject.save()
         else:
-            myProject = Project(Name = project_name, URL = stripped_line)
+            myProject = Project(Name = project_name, URL = stripped_line, TotalFiles = str(total_py_files))
             myProject.save()
 
         analyzed_projects.append(project_name)
@@ -396,6 +414,10 @@ def processFile(request):
         p1.stdout.close()
         output = p2.communicate()[0]
 
+        # Una vez analizado y creado el fichero JSON, elimino el proyecto de disco local
+        shutil.rmtree(project_path)
+
+
         # Abrir el fichero JSON
         try:
             with open(settings.CONSTANTS['jsonFile']) as data_file:
@@ -404,6 +426,7 @@ def processFile(request):
             if Project.objects.filter(Name = project_name, URL = stripped_line).exists():
                 Project.objects.filter(Name = project_name, URL = stripped_line).delete()
             continue
+        print "Procesando JSON..."        
 
         # Extraer los campos del fichero JSON
         for i in range(0, len(data["results"]["default"])):
@@ -471,10 +494,13 @@ def processFile(request):
         project = Project.objects.get(Name=k)
         html += '<div class="page-header"><h3><b><a href="http://localhost:8000/analyzer/project/' + k + '">' + k + '</a></b></h3></div>'
         html += '<h4> URL en GitHub: <a href="' + project.URL + '">' + project.URL + '</a></h4>'
+        html += '<h4># ficheros Python: ' + project.TotalFiles + '</h4>'
         total_files = 0
         for files in File.objects.filter(ProjectName = project):
             total_files += 1
-        html += '<h4># ficheros analizados: ' + str(total_files) + '</h4>'
+        html += '<h4># ficheros afectados: ' + str(total_files) + '</h4>'
+        percen = float(total_files)/float(project.TotalFiles)
+        html += '<h4>% ficheros afectados: ' + str(float(percen)*100)[0:5] + ' %</h4>'
         total_bears = 0
         for bears in Bear.objects.filter(ProjectName = project):
             total_bears += 1
@@ -557,14 +583,24 @@ def processURL(request):
     #Obtener la ruta al fichero descargado (dentro del directorio local)
     project_path = "/tmp/" + project_name.split("/")[1]
     python_files = project_path + "/**.py"
+
+    # Ficheros Python del proyecto
+    lstDir = os.walk(project_path)
+    total_py_files = 0        
+
+    for root, dirs, files in lstDir:
+        for myfile in files:
+            (name, ext) = os.path.splitext(myfile)
+            if(ext == ".py"):
+                total_py_files += 1
     
     # Comprobar la existencia del proyecto. Si existe, se sobreescribe
     if Project.objects.filter(Name = project_name, URL = stripped_line).exists():
         Project.objects.filter(Name = project_name, URL = stripped_line).delete()
-        myProject = Project(Name = project_name, URL = stripped_line)
+        myProject = Project(Name = project_name, URL = stripped_line, TotalFiles = str(total_py_files))
         myProject.save()
     else:
-        myProject = Project(Name = project_name, URL = stripped_line)
+        myProject = Project(Name = project_name, URL = stripped_line, TotalFiles = str(total_py_files))
         myProject.save()
 
     print "Analizando " + project_name + "..."
@@ -574,6 +610,9 @@ def processURL(request):
     p2 = Popen(["tee", settings.CONSTANTS['jsonFile']], stdin=p1.stdout, stdout=PIPE)
     p1.stdout.close()
     output = p2.communicate()[0]
+
+    # Una vez analizado y creado el fichero JSON, elimino el proyecto de disco local
+    shutil.rmtree(project_path)
 
     # Abrir el fichero JSON
     try:
@@ -591,6 +630,8 @@ def processURL(request):
 
         template = loader.get_template('error.html')
         return HttpResponse(template.render(Context({'html':html})))
+
+    print "Procesando JSON..." 
 
     # Extraer los campos del fichero JSON
     for i in range(0, len(data["results"]["default"])):
@@ -652,10 +693,13 @@ def processURL(request):
     project = Project.objects.get(Name=project_name)
     html += '<div class="page-header"><h3><b><a href="http://localhost:8000/analyzer/project/' + project_name + '">' + project_name + '</a></b></h3></div>'
     html += '<h4> URL en GitHub: <a href="' + project.URL + '">' + project.URL + '</a></h4>'
+    html += '<h4># ficheros Python: ' + project.TotalFiles + '</h4>'
     total_files = 0
     for files in File.objects.filter(ProjectName = project):
         total_files += 1
     html += '<h4># ficheros analizados: ' + str(total_files) + '</h4>'
+    percen = float(total_files)/float(project.TotalFiles)
+    html += '<h4>% ficheros afectados: ' + str(float(percen)*100)[0:5] + ' %</h4>'
     total_bears = 0
     for bears in Bear.objects.filter(ProjectName = project):
         total_bears += 1
@@ -710,10 +754,13 @@ def showResults(request):
             html += '<h3 align=center class="panel-title">' + myProject.Name + '</h3></div>'
             html += '<div class="panel-body">'
             html += '<h4> URL en GitHub: <a href="' + myProject.URL + '">' + myProject.URL + '</a></h4>'
+            html += '<h4>Ficheros Python: ' + myProject.TotalFiles + '</h4>'
             total_files = 0
             for files in File.objects.filter(ProjectName = myProject):
                 total_files += 1
             html += '<h4>Ficheros analizados: ' + str(total_files) + '</h4>'
+            percen = float(total_files)/float(myProject.TotalFiles)
+            html += '<h4>% ficheros afectados: ' + str(float(percen)*100)[0:5] + ' %</h4>'
             total_bears = 0
             for bears in Bear.objects.filter(ProjectName = myProject):
                 total_bears += 1

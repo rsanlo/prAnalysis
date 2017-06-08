@@ -7,6 +7,7 @@ from django.db import models
 class Project(models.Model):
     Name = models.TextField()
     URL = models.TextField()
+    TotalFiles = models.TextField(default='0')
 
 class File(models.Model):
     Name = models.TextField()
