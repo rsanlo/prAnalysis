@@ -13,7 +13,7 @@ from django.conf import settings
 from subprocess import Popen,PIPE
 from django.shortcuts import render
 from django.http import HttpResponse
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, InvalidSchema
 from django.template import loader, Context, Template, RequestContext
 
 def home(request):
@@ -222,7 +222,8 @@ def fileInfo(request, resource):
         template = loader.get_template('error.html')
         return HttpResponse(template.render(Context({'html':html})))
 
-    fileName = resource.split("/")[2]
+    fileName = resource[len(projectName)+1:len(resource)]
+    print fileName
     # Trata de abrir fichero
     try:    
         files = File.objects.get(Name = fileName, ProjectName = project)
@@ -231,7 +232,7 @@ def fileInfo(request, resource):
         html += '<div class="panel-heading">'
         html += '<h3 align=center class="panel-title">Error de b&uacute;squeda</h3></div>'
         html += '<div class="panel-body">'
-        html += '<h4>El fichero ' + fileName + ' no se encuentra almacenado en la base de datos dentro del proyecto ' + projectName + '.</h4>'
+        html += '<h4>El fichero ' + fileName + ' no se encuentra almacenado en la base de datos dentro del proyecto ' + projectName + ' recuerde que debe contener el path el fichero dentro del proyecto.</h4>'
         html += '</div>'
 
         template = loader.get_template('error.html')
@@ -370,6 +371,9 @@ def processFile(request):
         except HTTPError:
             print "UrlError: La linea '" + stripped_line + "' no pertenece a una url v&aacute;lida."
             continue
+        except InvalidSchema:
+            print "UrlError: La linea '" + stripped_line + "' no pertenece a una url v&aacute;lida."
+            continue
 
         # Obtener el nombre del proyecto
         project_name = url_line.path.split(".")[0]
@@ -382,7 +386,7 @@ def processFile(request):
         call(["git","clone",stripped_line])
 
         #Obtener la ruta al fichero descargado (dentro del directorio local)
-        project_path = "/tmp/" + project_name.split("/")[1]
+        project_path = settings.CONSTANTS['workspace'] + "/" + project_name.split("/")[1]
         python_files = project_path + "/**.py"
 
         # Ficheros Python del proyecto
@@ -438,8 +442,9 @@ def processFile(request):
             try:
                 affected_code_file = data["results"]["default"][i]["affected_code"][0]["file"]
                 var_file = affected_code_file.split("/")
-                analyzed_file = var_file[len(var_file)-1].strip()
-                url_file = "https://github.com/" + project_name + "/blob/master/" + analyzed_file
+#                analyzed_file = var_file[len(var_file)-1].strip()
+                analyzed_file = affected_code_file[(len(settings.CONSTANTS['workspace'])+len(affected_code_file.split("/")[2])+2):len(affected_code_file)]
+                url_file = "https://github.com/" + project_name + "/blob/master/" + affected_code_file[(len(settings.CONSTANTS['workspace'])+len(affected_code_file.split("/")[2])+2):len(affected_code_file)]
                 affected_code_start_line = data["results"]["default"][i]["affected_code"][0]["start"]["line"]
                 url_start_line = url_file + "#L" + str(affected_code_start_line)
                 if str(affected_code_start_line).strip() == "None":
@@ -570,6 +575,17 @@ def processURL(request):
         template = loader.get_template('error.html')
         return HttpResponse(template.render(Context({'html':html})))
 
+    except InvalidSchema:
+        html = u''
+        html += '<div class="panel-heading">'
+        html += '<h3 align=center class="panel-title">Error de b&uacute;squeda</h3></div>'
+        html += '<div class="panel-body">'
+        html += '<h4>La URL proporcionada no es correcta. Pruebe a buscar el proyecto en <a href="https://github.com/">GitHub</a>. Recuerde que la estructura b&aacute;sica de las URLs debe ser: https://github.com/AUTOR/PROYECTO.git</h4>'
+        html += '</div>'
+
+        template = loader.get_template('error.html')
+        return HttpResponse(template.render(Context({'html':html})))
+
     # Obtener el nombre del proyecto
     project_name = url_line.path.split(".")[0]
     project_name = project_name[1:len(project_name)]
@@ -581,7 +597,7 @@ def processURL(request):
     call(["git","clone",stripped_line])
 
     #Obtener la ruta al fichero descargado (dentro del directorio local)
-    project_path = "/tmp/" + project_name.split("/")[1]
+    project_path = settings.CONSTANTS['workspace'] + "/" + project_name.split("/")[1]
     python_files = project_path + "/**.py"
 
     # Ficheros Python del proyecto
@@ -643,8 +659,9 @@ def processURL(request):
         try:
             affected_code_file = data["results"]["default"][i]["affected_code"][0]["file"]
             var_file = affected_code_file.split("/")
-            analyzed_file = var_file[len(var_file)-1].strip()
-            url_file = "https://github.com/" + project_name + "/blob/master/" + analyzed_file
+#            analyzed_file = var_file[len(var_file)-1].strip()
+            analyzed_file = affected_code_file[(len(settings.CONSTANTS['workspace'])+len(affected_code_file.split("/")[2])+2):len(affected_code_file)]
+            url_file = "https://github.com/" + project_name + "/blob/master/" + affected_code_file[(len(settings.CONSTANTS['workspace'])+len(affected_code_file.split("/")[2])+2):len(affected_code_file)]
             affected_code_start_line = data["results"]["default"][i]["affected_code"][0]["start"]["line"]
             url_start_line = url_file + "#L" + str(affected_code_start_line)
             if str(affected_code_start_line).strip() == "None":
@@ -758,7 +775,7 @@ def showResults(request):
             total_files = 0
             for files in File.objects.filter(ProjectName = myProject):
                 total_files += 1
-            html += '<h4>Ficheros analizados: ' + str(total_files) + '</h4>'
+            html += '<h4>Ficheros afectados: ' + str(total_files) + '</h4>'
             percen = float(total_files)/float(myProject.TotalFiles)
             html += '<h4>% ficheros afectados: ' + str(float(percen)*100)[0:5] + ' %</h4>'
             total_bears = 0
@@ -791,7 +808,7 @@ def showResults(request):
                 html += '<h4><a href="http://localhost:8000/analyzer/file/' + project.Name + '/' + item + '">M&aacute;s informaci&oacute;n >>></a></h4>'
                 html += '</div>'
         else:
-            html += '<h3> El fichero ' + item + ' no existe en la BBDD</h3>'
+            html += '<h3> El fichero ' + item + ' no existe en la BBDD. Recuerde que para efectuar la b&uacute;squeda correctamente debe incluir el path del fichero dentro del proyecto salvo si se encuentra en el directorio ra&iacute;z del proyecto. Ejemplo: /directorio/fichero.py</h3>'
             template = loader.get_template('show.html')
             return HttpResponse(template.render(Context({'html':html, 'item':item})))
 
